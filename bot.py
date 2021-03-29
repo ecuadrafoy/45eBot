@@ -1,10 +1,12 @@
 import os
 import discord
+from discord import member
 from dotenv import load_dotenv
 from tabulate import tabulate
 from discord.ext import commands
 from sqlalchemy import engine, create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import inspect
 from datetime import datetime
 import sqlite3
 
@@ -22,9 +24,57 @@ load_dotenv('.env')
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-description = 'A based bot'
+description = 'A Based Bot'
 bot = commands.Bot(command_prefix='?', description=description)
 token = TOKEN
+
+
+bot.remove_command('help')
+@bot.group(invoke_without_command=True)
+async def help(ctx):
+    em = discord.Embed(title = 'Help', description = 'Use ?help <command> for extended information on a command')
+    em.add_field(name = 'Event Management', value = '`create`,`list`,`attend`, `view`, `delete`')
+    em.add_field(name = 'Fun', value = '`cum`')
+    await ctx.send(embed=em)
+
+@help.command()
+async def create(ctx):
+    em = discord.Embed(title = 'Create an Event', description = "Create a scheduled event")
+    em.add_field(name ='**Syntax**', value = '?create "Name of Event" [dd/mm/yyy] 0:00pm or am')
+    await ctx.send(embed=em)
+
+@help.command()
+async def list(ctx):
+    em = discord.Embed(title = 'List events', description = "Shows a list with all the events")
+    await ctx.send(embed=em)
+
+@help.command()
+async def attend(ctx):
+    em = discord.Embed(title = 'Attend an event', description = "Confirm attendance for a scheduled event")
+    em.add_field(name ='**Syntax**', value = '?attend "Name of Event" ')
+    await ctx.send(embed=em)
+
+@help.command()
+async def view(ctx):
+    em = discord.Embed(title = 'Show event details', description = "Shows information for an event, players attending, total count")
+    em.add_field(name ='**Syntax**', value = '?view "Name of Event" ')
+    await ctx.send(embed=em)
+
+@help.command()
+async def delete(ctx):
+    em = discord.Embed(title = 'Delete an event', description = "Delete an event and all the players linked to it")
+    em.add_field(name ='**Syntax**', value = '?delete "Name of Event" ')
+    await ctx.send(embed=em)
+
+@help.command()
+async def cum(ctx):
+    em = discord.Embed(title = 'Cum', description = "Make bot cum")
+    await ctx.send(embed=em)
+
+
+
+
+
 
 @bot.event
 async def on_ready():
@@ -48,7 +98,7 @@ async def ping(ctx, member: discord.Member=None):
 @bot.command()
 @commands.has_any_role('Colonel','Admin Dunkin','Officer','NCO')
 async def create(ctx, name:str, date:str, time: str='0:00am'):
-    ''' Creates an event with a specified name and date'''
+    ''' Creates an event with a specified name and date use the following format ?create "1st of Jan Event" 1/1/2021 8:00pm'''
     server = ctx.guild.name
     date_time = '{} {}'.format(date, time)
     try:
@@ -123,7 +173,7 @@ async def list(ctx):
         headers = ['Name', 'Date']
         rows = [[e.name, e.date] for e in events]
         table = tabulate(rows, headers)
-        await ctx.send('```\n' + table + '```\n' + 'All times shown are EST')
+        await ctx.send('```\n' + table + '```\n' + '```All times shown are EST```')
     except Exception as e:
         await ctx.send('Could not complete your command')
         print(e)
@@ -137,9 +187,17 @@ async def view(ctx, name: str):
         if not event:
             await ctx.send('This event does not exist')
             return
-        attending = session.query(Attendance).filter(Attendance.event_id == event.id).count()
-        info = [['Name', event.name], ['Date', event.date], ['Number Attending', attending]]
+        join = session.query(Member.name).join(Attendance, Attendance.member_id == Member.id).filter(Attendance.event_id == event.id).all()
+
+        attending_count = session.query(Attendance).filter(Attendance.event_id == event.id).count()
+
+        info = [['Name', event.name], ['Date', event.date], ['Number Attending', attending_count]]
+        players_headers= ['Gamers Attending']
+        rows = [[a.name] for a in join]
+        table = tabulate(rows, players_headers)
         await ctx.send('```\n' + tabulate(info) + '```')
+        await ctx.send('```\n' + table + '```')
+
     except Exception as e:
         await ctx.send('Could not complete your command')
         print(e)
