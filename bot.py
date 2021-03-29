@@ -18,10 +18,9 @@ session = Session()
 #if not engine.dialect.has_table(engine, 'event'):
 Base.metadata.create_all(engine)
 
-load_dotenv()
+load_dotenv('.env')
 
 TOKEN = os.getenv('DISCORD_TOKEN')
-GUILD = 'JSS Albania'
 
 description = 'A based bot'
 bot = commands.Bot(command_prefix='?', description=description)
@@ -47,6 +46,7 @@ async def ping(ctx, member: discord.Member=None):
     #await ctx.send('{} arguments: {}'.format(len(args),', '.join(args)))
 
 @bot.command()
+@commands.has_any_role('Colonel','Admin Dunkin','Officer','NCO')
 async def create(ctx, name:str, date:str, time: str='0:00am'):
     ''' Creates an event with a specified name and date'''
     server = ctx.guild.name
@@ -61,6 +61,29 @@ async def create(ctx, name:str, date:str, time: str='0:00am'):
     except Exception as e:
         await ctx.send('Could not complete your command')
         print(e)
+
+@bot.command()
+@commands.has_any_role('Colonel','Admin Dunkin','Officer','NCO')
+async def delete(ctx, name:str):
+    ''' Delete an event and the attendance of people related to the event'''
+    try:
+        event = session.query(Event).filter(Event.name == name).first()
+        session.query(Attendance).filter(Attendance.event_id == event.id).delete()      
+        #event = Event(name=name)
+        session.delete(event)
+        session.commit()
+        message = 'Event {} deleted successfully'.format(name)
+        await ctx.send(message)
+    except Exception as e:
+        await ctx.send('Could not complete your command')
+        print(e)
+
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.errors.CheckAnyFailure):
+        await ctx.send('You do not have the correct role for this command.')
+
 
 @bot.command()
 async def attend(ctx, name: str):
@@ -93,23 +116,22 @@ async def attend(ctx, name: str):
 
 @bot.command()
 async def list(ctx):
-    ''' Displays the list of 
-    current events
+    ''' Displays the list of current events
     '''
     try:
         events = session.query(Event).order_by(Event.date).all()
         headers = ['Name', 'Date']
         rows = [[e.name, e.date] for e in events]
         table = tabulate(rows, headers)
-        await ctx.send('```\n' + table + '```')
+        await ctx.send('```\n' + table + '```\n' + 'All times shown are EST')
     except Exception as e:
         await ctx.send('Could not complete your command')
         print(e)
 
 @bot.command()
 async def view(ctx, name: str):
-    '''Displays information about a specific
-    event'''
+    '''Displays information about a specific event
+    '''
     try:
         event = session.query(Event).filter(Event.name == name).first()
         if not event:
@@ -121,6 +143,12 @@ async def view(ctx, name: str):
     except Exception as e:
         await ctx.send('Could not complete your command')
         print(e)
+
+@bot.command()
+async def cum(ctx):
+    '''Make the bot cum'''
+    await ctx.send('Camed')
+
 
 
 if __name__ == '__main__':
