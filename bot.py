@@ -8,9 +8,18 @@ from sqlalchemy import engine, create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import inspect
 from datetime import datetime
+import logging
 import sqlite3
 
 from models import Base, Event, Member, Attendance
+#logging.basicConfig(level=logging.INFO)
+
+
+#logger = logging.getLogger('discord')
+#logger.setLevel(logging.DEBUG)
+#handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+#handler.setFormatter(logging.Formatter('(%asctime)s:%(levelname)s: %(message)s'))
+#logger.addHandler(handler)
 
 engine = create_engine('sqlite:///event-bot.db', echo=False)
 Session = sessionmaker(bind=engine)
@@ -70,10 +79,6 @@ async def delete(ctx):
 async def cum(ctx):
     em = discord.Embed(title = 'Cum', description = "Make bot cum")
     await ctx.send(embed=em)
-
-
-
-
 
 
 @bot.event
@@ -206,6 +211,15 @@ async def view(ctx, name: str):
 async def cum(ctx):
     '''Make the bot cum'''
     await ctx.send('Camed')
+
+
+@bot.command()
+async def vc_list(ctx):
+    channel = ctx.get_channel(394722615337418786)
+    curMembers = []
+    for member in channel.members:
+        curMembers.append(member.name)
+    await ctx.send(curMembers)
 
 
 
