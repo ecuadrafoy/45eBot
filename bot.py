@@ -82,7 +82,7 @@ async def delete(ctx):
 
 @help.command()
 async def vc(ctx):
-    em = discord.Embed(title = 'Voice Chat Attendance', description = "Take attendance during a linebattle on people who are in A Company")
+    em = discord.Embed(title = 'Voice Chat Attendance', description = "Take attendance during a linebattle from A Company directly")
     em.add_field(name ='**Syntax**', value = '?vc "Name of Event" ')
     await ctx.send(embed=em)
 
