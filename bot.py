@@ -1,7 +1,10 @@
 import os
 import discord
+import asyncio
+import pandas as pd
 from discord import member
 from dotenv import load_dotenv
+from sqlalchemy.sql.expression import column
 from tabulate import tabulate
 from discord.ext import commands
 from sqlalchemy import engine, create_engine
@@ -30,11 +33,13 @@ session = Session()
 Base.metadata.create_all(engine)
 
 load_dotenv('.env')
-
 TOKEN = os.getenv('DISCORD_TOKEN')
 
+intents = discord.Intents.default()
+intents.members = True 
+
 description = 'A Based Bot'
-bot = commands.Bot(command_prefix='?', description=description)
+bot = commands.Bot(command_prefix='?', description=description ,intents=intents)
 token = TOKEN
 
 
@@ -42,7 +47,7 @@ bot.remove_command('help')
 @bot.group(invoke_without_command=True)
 async def help(ctx):
     em = discord.Embed(title = 'Help', description = 'Use ?help <command> for extended information on a command')
-    em.add_field(name = 'Event Management', value = '`create`,`list`,`attend`, `view`, `delete`')
+    em.add_field(name = 'Event Management', value = '`create`,`list`,`attend`, `view`, `delete`,`vc`')
     em.add_field(name = 'Fun', value = '`cum`')
     await ctx.send(embed=em)
 
@@ -76,6 +81,12 @@ async def delete(ctx):
     await ctx.send(embed=em)
 
 @help.command()
+async def vc(ctx):
+    em = discord.Embed(title = 'Voice Chat Attendance', description = "Take attendance during a linebattle on people who are in A Company")
+    em.add_field(name ='**Syntax**', value = '?vc "Name of Event" ')
+    await ctx.send(embed=em)
+
+@help.command()
 async def cum(ctx):
     em = discord.Embed(title = 'Cum', description = "Make bot cum")
     await ctx.send(embed=em)
@@ -83,6 +94,7 @@ async def cum(ctx):
 
 @bot.event
 async def on_ready():
+    
     print(bot.user.id)
     print(bot.user.name)
     print('---------------')
@@ -152,6 +164,7 @@ async def attend(ctx, name: str):
         #Counts the number of existing id for a user
         count = session.query(Member).filter(Member.id == id).count()
         event = session.query(Event).filter(Event.name == name).first()
+        #attendance_q = session.query(Attendance).all()
         # Verify this event exists
         if not event:
             await ctx.send('This event does not exist')
@@ -212,14 +225,71 @@ async def cum(ctx):
     '''Make the bot cum'''
     await ctx.send('Camed')
 
+# https://github.com/Omastto1/VoiceChatPresenceBot/tree/main/src
 
 @bot.command()
-async def vc_list(ctx):
-    channel = ctx.get_channel(394722615337418786)
-    curMembers = []
+@commands.has_any_role('Colonel','Admin Dunkin','Officer','NCO')
+async def vc(ctx, name:str):
+    # Connecting to A Company VC
+    channel = bot.get_channel(394722615337418786)
+    # Adding new members to the DB if they don't exist
+    db_members = pd.read_sql('member', con=engine)
+    curMembersID = []
     for member in channel.members:
-        curMembers.append(member.name)
-    await ctx.send(curMembers)
+        curMembersID.append(member.id)
+    curMembersName = []
+    for member in channel.members:
+        curMembersName.append(member.name)
+    df = pd.DataFrame(zip(curMembersID, curMembersName),
+                      columns = ['id', 'name'])
+    mask = ~df.id.isin(db_members.id)
+    df.loc[mask].to_sql('member', con=engine, index=False, if_exists='append')
+    #message_members = 'New members added to the database: {}'.format(len(mask))
+    #await ctx.send(message_members)
+
+    #Printing the nicknames
+    curMembersNick = []
+    for member in channel.members:
+        curMembersNick.append(member.nick)
+    attendance_df = pd.DataFrame({'Gamers Attending':curMembersNick})
+    attendance_print = attendance_df.to_string(index=False)
+    await ctx.send('```\n' + attendance_print +'```')
+    #Adding to the Attendance table
+    try:
+         event = session.query(Event).filter(Event.name == name).first()
+         id = event.id
+         df.drop(columns=['name'], inplace=True)
+         df = df.assign(event_id=id)
+         df.rename(columns={'id':'member_id'}, inplace=True)
+         df.to_sql('attendance', con=engine, index=False, if_exists='append')
+         message_confirm = '{} members are attending the event" {}'.format(len(df), event.name)
+         await ctx.send('```' + message_confirm + '```')
+         if not event:
+             await ctx.send('This event does not exist')
+             return
+    except Exception as e:
+        await ctx.send('Could not complete your command')
+        print(e) 
+         
+@bot.command(brief="returns a list of the people in the voice channels in the server",)
+async def vcmembers(ctx):
+    #First getting the voice channels
+    voice_channel_list = ctx.guild.voice_channels
+    #getting the members in the voice channel
+    for voice_channels in voice_channel_list:
+        #list the members if there are any in the voice channel
+        if len(voice_channels.members) != 0:
+            if len(voice_channels.members) == 1:
+                print("{} member in {}".format(len(voice_channels.members), voice_channels.name))
+                await ctx.send("{} member in {}".format(len(voice_channels.members), voice_channels.name))
+            else:
+                await ctx.send("{} members in {}".format(len(voice_channels.members), voice_channels.name))
+            for members in voice_channels.members:
+                #if user does not have a nickname in the guild, send thier discord name. Otherwise, send thier guild nickname
+                if members.nick == None:
+                    await ctx.send(members.name)
+                else:
+                    await ctx.send(members.nick)
 
 
 
