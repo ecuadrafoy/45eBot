@@ -2,6 +2,7 @@ import os
 import discord
 import asyncio
 from discord.ext.commands.bot import AutoShardedBot
+import wikipedia
 import pandas as pd
 from discord import member
 from dotenv import load_dotenv
@@ -12,8 +13,7 @@ from sqlalchemy import engine, create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import inspect
 from datetime import datetime
-import logging
-import sqlite3
+from random import randint
 
 from models import Base, DeathList, Event, Member, Attendance, MoonDeath
 #logging.basicConfig(level=logging.INFO)
@@ -49,6 +49,7 @@ bot.remove_command('help')
 async def help(ctx):
     em = discord.Embed(title = 'Help', description = 'Use ?help <command> for extended information on a command')
     em.add_field(name = 'Event Management', value = '`create`,`list`,`attend`, `view`, `delete`,`vc`')
+    em.add_field(name = 'Wikipedia Search', value = '`wikisearch`,`wikiview`,`wikirandom`')
     em.add_field(name = 'Fun', value = '`cum`')
     await ctx.send(embed=em)
 
@@ -90,6 +91,24 @@ async def vc(ctx):
 @help.command()
 async def cum(ctx):
     em = discord.Embed(title = 'Cum', description = "Make bot cum")
+    await ctx.send(embed=em)
+
+@help.command()
+async def wikisearch(ctx):
+    em = discord.Embed(title = 'Wikipedia search', description = "Provide a list of search results from a query on wikipedia")
+    em.add_field(name ='**Syntax**', value = '?wikisearch "Search query" ')
+    await ctx.send(embed=em)
+
+@help.command()
+async def wikiview(ctx):
+    em = discord.Embed(title = 'Wikipedia article', description = "Show summary of a wikipedia article from a query")
+    em.add_field(name ='**Syntax**', value = '?wikiview "Search query" ')
+    await ctx.send(embed=em)
+
+@help.command()
+async def wikirandom(ctx):
+    em = discord.Embed(title = 'Random Wikipedia article', description = "Show summary of a random wikipedia article")
+    em.add_field(name ='**Syntax**', value = '?wikirandom ')
     await ctx.send(embed=em)
 
 
@@ -319,6 +338,99 @@ async def kill(ctx, objective:str):
     except Exception as e:
         await ctx.send('Could not complete your command')
         print(e) 
+
+
+# Setting up a Wikipedia search
+current_language = 'en'
+
+@bot.command()
+async def wikisearch(ctx, query:str):
+    global current_language
+    e = None
+    try:
+        wikicontent = wikipedia.search(query, results=20, suggestion=False)
+        print(wikicontent)
+        #if not results
+        if not wikicontent:
+            wikicontent = 'Could not find search results for  {}.'.format(query)
+            embed = discord.Embed(title = "Wikipedia search results:", color=0xe74c3c, description = wikicontent)
+            embed.set_thumbnail(url = 'https://www.wikipedia.org/static/images/project-logos/{}wiki.png'.format(current_language))
+            await ctx.send(embed=embed)
+        #if there are do
+        else:
+            embed = discord.Embed(title='Wikipedia search results:', color=0, description="\n".join(wikicontent))
+            embed.set_thumbnail(url='https://www.wikipedia.org/static/images/project-logos/{}wiki.png'.format(current_language))
+            await ctx.send(embed=embed)
+    except Exception as e:
+        e = str(e)
+        await ctx.send('Sorry a random error occurred. Please try again')
+        print(e)
+
+@bot.command()
+async def wikiview(ctx, query:str):
+    global current_language
+    e = None
+    try:
+        pagecontent = wikipedia.page(query)
+        pagetext = wikipedia.summary(query, sentences=5)
+        
+        try:
+            thumbnail = pagecontent.images[randint(0, len(pagecontent.images))]
+        except:
+            thumbnail = "https://www.wikipedia.org/static/images/project-logos/{}wiki.png".format(current_language)
+        embed = discord.Embed(title = query, color = 0, description = pagetext + "\n\n[Read further]({})".format(pagecontent.url))
+        embed.set_thumbnail(url=thumbnail)
+        await ctx.send(embed=embed)
+        
+    except wikipedia.DisambiguationError:
+        NotSpecificRequestErrorMessage = """Sorry, your search request wasn't specific enough. Please try '/w search (your request)'. This will display all wikipedia articles with your search request. You can than copy the correct result and put that in /a display."""
+        embed = discord.Embed(title="Bad request: ", color=0xe74c3c, description=NotSpecificRequestErrorMessage)
+        embed.set_thumbnail(url="https://www.wikipedia.org/static/images/project-logos/{}wiki.png".format(current_language))
+        await ctx.send(embed=embed)
+
+    except wikipedia.PageError:
+
+        NoResultErrorMessage = "Sorry, there are no Wikipedia articles with this title. Please try '/w search (your request)' to look up Wikipedia article name's"
+        embed = discord.Embed(title="Not found: ", color=0xe74c3c, description=NoResultErrorMessage)
+        embed.set_thumbnail(url="https://www.wikipedia.org/static/images/project-logos/{}wiki.png".format(current_language))
+        await ctx.send(embed=embed)
+
+    except:
+        RandomErrorMessage = "Sorry, a random error occured"
+        embed = discord.Embed(title="Error", color=0xe74c3c, description=RandomErrorMessage)
+        embed.set_thumbnail(url="https://www.wikipedia.org/static/images/project-logos/{}wiki.png".format(current_language))
+        await ctx.send(embed=embed)
+
+@bot.command()
+async def wikirandom(ctx):
+
+    global current_language
+
+    #Makes sure you will get an article.
+    try:
+        random_article = wikipedia.random(pages=1)
+
+    except wikipedia.DisambiguationError:
+        try:
+            random_article = wikipedia.random(pages=1)
+        except wikipedia.DisambiguationError:
+            try:
+                random_article = wikipedia.random(pages=1)
+            except wikipedia.DisambiguationError:
+                random_article = wikipedia.random(pages=1)
+    pagecontent = wikipedia.page(random_article)
+    pagetext = wikipedia.summary(random_article, sentences=5)
+    #Try to set an random image in the article as the thumbnail
+    try:
+        thumbnail = pagecontent.images[randint(0, len(pagecontent.images))]
+    except Exception as error:
+        thumbnail = "https://www.wikipedia.org/static/images/project-logos/{}wiki.png".format(current_language)
+        print("Couldn't load {}".format(thumbnail))
+    embed = discord.Embed(title=random_article, color=0, description=pagetext + "\n\n[Read further]({})".format(pagecontent.url))
+    embed.set_thumbnail(url=thumbnail)
+    await ctx.send(embed=embed)
+   
+
 
 if __name__ == '__main__':
     try:
