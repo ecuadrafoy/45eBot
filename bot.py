@@ -1,6 +1,7 @@
 import os
 import discord
 import asyncio
+from discord.ext.commands.bot import AutoShardedBot
 import pandas as pd
 from discord import member
 from dotenv import load_dotenv
@@ -14,7 +15,7 @@ from datetime import datetime
 import logging
 import sqlite3
 
-from models import Base, Event, Member, Attendance
+from models import Base, DeathList, Event, Member, Attendance, MoonDeath
 #logging.basicConfig(level=logging.INFO)
 
 
@@ -291,7 +292,33 @@ async def vcmembers(ctx):
                 else:
                     await ctx.send(members.nick)
 
+@bot.command()
+async def killmoon(ctx):
+    user = ctx.author
+    kill = MoonDeath(member_id=user.id, name=user.nick)
+    session.add(kill)
+    session.commit()
+    death_count = session.query(MoonDeath).count()
+    message = '{} has killed Moon. He has died {} times'.format(user.nick, death_count) 
+    await ctx.send('```'+ message + '```')
 
+@bot.command()
+async def kill(ctx, objective:str):
+    user = ctx.author
+    try:
+        target = session.query(Member).filter(Member.name.contains(objective)).first()
+        if not target:
+            await ctx.send('Target was not found')
+        else:
+            kill = DeathList(assassin_id=user.id, assasin_name=user.nick, target_id=target.id, target_name=target.name)
+            session.add(kill)
+            session.commit()
+            death_count = session.query(DeathList).filter(DeathList.target_id == target.id).count()
+            message = '{} has killed {}. He has died {} times.' .format(user.nick, target.name, death_count)
+            await ctx.send('```'+ message + '```')
+    except Exception as e:
+        await ctx.send('Could not complete your command')
+        print(e) 
 
 if __name__ == '__main__':
     try:

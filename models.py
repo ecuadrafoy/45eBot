@@ -29,3 +29,16 @@ class Member(Base):
     name  = Column(TEXT)
     avatar = Column(TEXT)
 
+class MoonDeath(Base):
+    __tablename__ = 'killmoon'
+    id = Column(INTEGER, primary_key=True, nullable=False)
+    member_id = Column(TEXT)
+    name = Column(TEXT)
+
+class DeathList(Base):
+    __tablename__ = 'deathlist'
+    id = Column(INTEGER, primary_key=True, nullable=False)
+    assassin_id = Column(TEXT)
+    assasin_name = Column(TEXT)
+    target_id = Column(TEXT)
+    target_name = Column(TEXT)
