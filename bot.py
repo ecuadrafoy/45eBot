@@ -36,7 +36,7 @@ Base.metadata.create_all(engine)
 load_dotenv('.env')
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-intents = discord.Intents.default()
+intents = discord.Intents.all()
 intents.members = True 
 
 description = 'A Based Bot'
@@ -282,7 +282,7 @@ async def vc(ctx, name:str):
          df = df.assign(event_id=id)
          df.rename(columns={'id':'member_id'}, inplace=True)
          df.to_sql('attendance', con=engine, index=False, if_exists='append')
-         message_confirm = '{} members are attending the event" {}'.format(len(df), event.name)
+         message_confirm = '{} members are attending the event {}'.format(len(df), event.name)
          await ctx.send('```' + message_confirm + '```')
          if not event:
              await ctx.send('This event does not exist')
