@@ -29,7 +29,6 @@ class Member(Base):
     __tablename__ = 'member'
     id = Column(INTEGER, primary_key=True, nullable=False)
     name  = Column(TEXT)
-    role = Column(TEXT)
 
 class MoonDeath(Base):
     __tablename__ = 'killmoon'

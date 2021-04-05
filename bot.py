@@ -16,14 +16,6 @@ from datetime import datetime
 from random import randint
 
 from models import Base, DeathList, Event, Member, Attendance, MoonDeath
-#logging.basicConfig(level=logging.INFO)
-
-
-#logger = logging.getLogger('discord')
-#logger.setLevel(logging.DEBUG)
-#handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
-#handler.setFormatter(logging.Formatter('(%asctime)s:%(levelname)s: %(message)s'))
-#logger.addHandler(handler)
 
 engine = create_engine('sqlite:///official-db.db', echo=False)
 Session = sessionmaker(bind=engine)
@@ -137,6 +129,7 @@ async def ping(ctx, member: discord.Member=None):
 async def create(ctx, name:str, date:str, time: str='0:00am', event_type='Holdfast'):
     ''' Creates an event with a specified name and date use the following format ?create "1st of Jan Event" 1/1/2021 8:00pm'''
     server = ctx.guild.name
+    name = name.strip()
     date_time = '{} {}'.format(date, time)
     try:
         event_date = datetime.strptime(date_time, '%m/%d/%Y %I:%M%p')
@@ -153,6 +146,7 @@ async def create(ctx, name:str, date:str, time: str='0:00am', event_type='Holdfa
 @commands.has_any_role('Colonel','Admin Dunkin','Officer','NCO')
 async def delete(ctx, name:str):
     ''' Delete an event and the attendance of people related to the event'''
+    name = name.strip()
     try:
         event = session.query(Event).filter(Event.name == name).first()
         session.query(Attendance).filter(Attendance.event_id == event.id).delete()      
@@ -179,6 +173,7 @@ async def attend(ctx, name: str):
     '''
     author = ctx.author.name
     id = ctx.author.id
+    name = name.strip()
 
     try:
         #Counts the number of existing id for a user
@@ -220,6 +215,7 @@ async def list(ctx):
 async def view(ctx, name: str):
     '''Displays information about a specific event
     '''
+    name = name.strip()
     try:
         event = session.query(Event).filter(Event.name == name).first()
         if not event:
@@ -253,6 +249,7 @@ async def cum(ctx):
 async def vc(ctx, name:str):
     get_channel = ctx.author.voice.channel.id
     channel = bot.get_channel(get_channel)
+    name = name.strip()
     # Adding new members to the DB if they don't exist
     db_members = pd.read_sql('member', con=engine)
     curMembersID = []
@@ -266,7 +263,7 @@ async def vc(ctx, name:str):
         curMembersNick.append(member.nick)
     df = pd.DataFrame(zip(curMembersID, curMembersName),
                       columns = ['id', 'name'], dtype='object')
-    mask = ~df.id.isin(db_members.id)
+    mask = ~df.id.isin(db_members.id) #produces a True tag for IDs that are not in the database
     attendance_df = pd.DataFrame({'Gamers Attending':curMembersNick})
     attendance_print = attendance_df.to_string(index=False)
     #Printing the nicknames
