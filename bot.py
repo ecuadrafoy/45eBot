@@ -25,7 +25,7 @@ from models import Base, DeathList, Event, Member, Attendance, MoonDeath
 #handler.setFormatter(logging.Formatter('(%asctime)s:%(levelname)s: %(message)s'))
 #logger.addHandler(handler)
 
-engine = create_engine('sqlite:///event-bot.db', echo=False)
+engine = create_engine('sqlite:///official-db.db', echo=False)
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -134,13 +134,13 @@ async def ping(ctx, member: discord.Member=None):
 
 @bot.command()
 @commands.has_any_role('Colonel','Admin Dunkin','Officer','NCO')
-async def create(ctx, name:str, date:str, time: str='0:00am'):
+async def create(ctx, name:str, date:str, time: str='0:00am', event_type='Holdfast'):
     ''' Creates an event with a specified name and date use the following format ?create "1st of Jan Event" 1/1/2021 8:00pm'''
     server = ctx.guild.name
     date_time = '{} {}'.format(date, time)
     try:
         event_date = datetime.strptime(date_time, '%m/%d/%Y %I:%M%p')
-        event = Event(name=name, server=server, date=event_date)
+        event = Event(name=name, server=server, date=event_date, event_type=event_type)
         session.add(event)
         session.commit()
         message = 'Event {} created successfully for {}'.format(name,event.date)
@@ -178,8 +178,8 @@ async def attend(ctx, name: str):
     Allows a user to attend an upcoming event
     '''
     author = ctx.author.name
-    avatar = ctx.author.avatar_url
     id = ctx.author.id
+
     try:
         #Counts the number of existing id for a user
         count = session.query(Member).filter(Member.id == id).count()
@@ -193,7 +193,7 @@ async def attend(ctx, name: str):
         if count < 1:
             member = Member(id=id, name=author)
             session.add(member)
-        attending = Attendance(member_id=id, event_id=event.id)
+        attending = Attendance(member_id=id, event_id=event.id, member_name=author)
         session.add(attending)
         session.commit()
         message = 'Member {} is now attending event {}'.format(author, name)
@@ -208,8 +208,8 @@ async def list(ctx):
     '''
     try:
         events = session.query(Event).order_by(Event.date).all()
-        headers = ['Name', 'Date']
-        rows = [[e.name, e.date] for e in events]
+        headers = ['Name', 'Date', 'Type']
+        rows = [[e.name, e.date, e.event_type] for e in events]
         table = tabulate(rows, headers)
         await ctx.send('```\n' + table + '```\n' + '```All times shown are EST```')
     except Exception as e:
@@ -245,13 +245,14 @@ async def cum(ctx):
     '''Make the bot cum'''
     await ctx.send('Camed')
 
+
 # https://github.com/Omastto1/VoiceChatPresenceBot/tree/main/src
 
 @bot.command()
 @commands.has_any_role('Colonel','Admin Dunkin','Officer','NCO')
 async def vc(ctx, name:str):
-    # Connecting to A Company VC
-    channel = bot.get_channel(394722615337418786)
+    get_channel = ctx.author.voice.channel.id
+    channel = bot.get_channel(get_channel)
     # Adding new members to the DB if they don't exist
     db_members = pd.read_sql('member', con=engine)
     curMembersID = []
@@ -260,27 +261,24 @@ async def vc(ctx, name:str):
     curMembersName = []
     for member in channel.members:
         curMembersName.append(member.name)
-    df = pd.DataFrame(zip(curMembersID, curMembersName),
-                      columns = ['id', 'name'])
-    mask = ~df.id.isin(db_members.id)
-    df.loc[mask].to_sql('member', con=engine, index=False, if_exists='append')
-    #message_members = 'New members added to the database: {}'.format(len(mask))
-    #await ctx.send(message_members)
-
-    #Printing the nicknames
     curMembersNick = []
     for member in channel.members:
         curMembersNick.append(member.nick)
+    df = pd.DataFrame(zip(curMembersID, curMembersName),
+                      columns = ['id', 'name'], dtype='object')
+    mask = ~df.id.isin(db_members.id)
     attendance_df = pd.DataFrame({'Gamers Attending':curMembersNick})
     attendance_print = attendance_df.to_string(index=False)
+    #Printing the nicknames
     await ctx.send('```\n' + attendance_print +'```')
+    df.loc[mask].to_sql('member', con=engine, index=False, if_exists='append')
+
     #Adding to the Attendance table
     try:
          event = session.query(Event).filter(Event.name == name).first()
          id = event.id
-         df.drop(columns=['name'], inplace=True)
          df = df.assign(event_id=id)
-         df.rename(columns={'id':'member_id'}, inplace=True)
+         df.rename(columns={'id':'member_id', 'name':'member_name'}, inplace=True)
          df.to_sql('attendance', con=engine, index=False, if_exists='append')
          message_confirm = '{} members are attending the event {}'.format(len(df), event.name)
          await ctx.send('```' + message_confirm + '```')

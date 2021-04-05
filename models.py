@@ -15,19 +15,21 @@ class Event(Base):
     name = Column(TEXT)
     server = Column(TEXT)
     date = Column(DATETIME)
+    event_type = Column(TEXT)
 
 class Attendance(Base):
     __tablename__ = 'attendance'
     __table_args__= {'sqlite_autoincrement': True}
     id = Column(INTEGER, primary_key=True, nullable=False)
-    member_id = Column(TEXT)
-    event_id = Column(TEXT)
+    member_id = Column(INTEGER)
+    member_name = Column(TEXT)
+    event_id = Column(INTEGER)
 
 class Member(Base):
     __tablename__ = 'member'
     id = Column(INTEGER, primary_key=True, nullable=False)
     name  = Column(TEXT)
-    avatar = Column(TEXT)
+    role = Column(TEXT)
 
 class MoonDeath(Base):
     __tablename__ = 'killmoon'
