@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import inspect
 from datetime import datetime
 from random import randint
-
+from gsheets import *
 from models import Base, DeathList, Event, Member, Attendance, MoonDeath
 
 engine = create_engine('sqlite:///official-db.db', echo=False)
@@ -41,8 +41,14 @@ bot.remove_command('help')
 async def help(ctx):
     em = discord.Embed(title = 'Help', description = 'Use ?help <command> for extended information on a command')
     em.add_field(name = 'Event Management', value = '`create`,`list`,`attend`, `view`, `delete`,`vc`')
+    em.add_field(name = 'Database Management', value = '`updatedb`')
     em.add_field(name = 'Wikipedia Search', value = '`wikisearch`,`wikiview`,`wikirandom`')
     em.add_field(name = 'Fun', value = '`cum`')
+    await ctx.send(embed=em)
+
+@help.command()
+async def updatedb(ctx):
+    em = discord.Embed(title = 'Update Google Sheets', description = "Updates the google sheets spreadsheets with the latest data")
     await ctx.send(embed=em)
 
 @help.command()
@@ -130,6 +136,7 @@ async def create(ctx, name:str, date:str, time: str='0:00am', event_type='Holdfa
     ''' Creates an event with a specified name and date use the following format ?create "1st of Jan Event" 1/1/2021 8:00pm'''
     server = ctx.guild.name
     name = name.strip()
+    # make a fullname string that combines the name and the date of event
     date_time = '{} {}'.format(date, time)
     try:
         event_date = datetime.strptime(date_time, '%m/%d/%Y %I:%M%p')
@@ -242,7 +249,6 @@ async def cum(ctx):
     await ctx.send('Camed')
 
 
-# https://github.com/Omastto1/VoiceChatPresenceBot/tree/main/src
 
 @bot.command()
 @commands.has_any_role('Colonel','Admin Dunkin','Officer','NCO')
@@ -285,7 +291,17 @@ async def vc(ctx, name:str):
     except Exception as e:
         await ctx.send('Could not complete your command')
         print(e) 
-         
+
+@bot.command()         
+@commands.has_any_role('Colonel','Admin Dunkin','Officer')
+async def updatedb(ctx):
+    try:
+        gsheets()
+        await ctx.send('Google Sheets Successfully Updated')
+    except Exception as e:
+        await ctx.send('Could not complete your command')
+        print(e)
+
 @bot.command(brief="returns a list of the people in the voice channels in the server",)
 async def vcmembers(ctx):
     #First getting the voice channels
@@ -305,6 +321,7 @@ async def vcmembers(ctx):
                     await ctx.send(members.name)
                 else:
                     await ctx.send(members.nick)
+                    
 
 @bot.command()
 async def killmoon(ctx):
