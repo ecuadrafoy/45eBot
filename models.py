@@ -43,3 +43,11 @@ class DeathList(Base):
     assasin_name = Column(TEXT)
     target_id = Column(TEXT)
     target_name = Column(TEXT)
+
+class Feedback(Base):
+    __tablename__='feedback'
+    id = Column(INTEGER, primary_key=True, nullable=False)
+    feedback_text = Column(TEXT)
+    feedback_date = Column(DATETIME)
+    feedback_author = Column(TEXT)
+    

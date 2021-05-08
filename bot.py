@@ -12,10 +12,10 @@ from discord.ext import commands
 from sqlalchemy import engine, create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import inspect
-from datetime import datetime
+from datetime import datetime, timedelta
 from random import randint
 from gsheets import *
-from models import Base, DeathList, Event, Member, Attendance, MoonDeath
+from models import Base, DeathList, Event, Member, Attendance, MoonDeath, Feedback
 
 engine = create_engine('sqlite:///official-db.db', echo=False)
 Session = sessionmaker(bind=engine)
@@ -42,10 +42,17 @@ async def help(ctx):
     em = discord.Embed(title = 'Help', description = 'Use ?help <command> for extended information on a command')
     em.add_field(name = 'Event Management', value = '`create`,`list`,`attend`, `view`, `delete`,`vc`')
     em.add_field(name = 'Database Management', value = '`updatedb`')
+    em.add_field(name = 'Event Feedback', value = '`feedback`')
     em.add_field(name = 'Wikipedia Search', value = '`wikisearch`,`wikiview`,`wikirandom`')
     em.add_field(name = 'Fun', value = '`cum`')
     await ctx.send(embed=em)
 
+@help.command()
+async def feedback(ctx):
+    em = discord.Embed(title = 'Feedback Event', description = "Provides us feedback on the 45e organized event")
+    em.add_field(name ='**Syntax**', value = '?feedback "Your feedback here, make sure to write it between quotation marks" ')
+    await ctx.send(embed=em)
+    
 @help.command()
 async def updatedb(ctx):
     em = discord.Embed(title = 'Update Google Sheets', description = "Updates the google sheets spreadsheets with the latest data")
@@ -138,13 +145,47 @@ async def create(ctx, name:str, date:str, time: str='0:00am', event_type='Holdfa
     name = name.strip()
     # make a fullname string that combines the name and the date of event
     date_time = '{} {}'.format(date, time)
+    fullname = name +' - '+ date
     try:
         event_date = datetime.strptime(date_time, '%m/%d/%Y %I:%M%p')
-        event = Event(name=name, server=server, date=event_date, event_type=event_type)
+        event = Event(name=fullname, server=server, date=event_date, event_type=event_type)
         session.add(event)
         session.commit()
         message = 'Event {} created successfully for {}'.format(name,event.date)
         await ctx.send(message)
+    except Exception as e:
+        await ctx.send('Could not complete your command')
+        print(e)
+
+@bot.command()
+@commands.has_any_role('Conquest Rep', 'Reps')
+async def feedback(ctx, answer:str):
+    author = ctx.author.name
+    answer = answer.strip()
+    today = datetime.now()
+    #date = today.strptime('%m/%d/%Y %I:%M%p')
+    try:
+        feedback = Feedback(feedback_text=answer, feedback_date=today , feedback_author=author)
+        session.add(feedback)
+        session.commit()
+        message = 'Thank you {}, your feedback has been submitted successfully'.format(author)
+        await ctx.send(message)
+    except Exception as e:
+        await ctx.send('Could not complete your command')
+        print(e)
+
+@bot.command()
+@commands.has_any_role('Officer')
+async def feedlist(ctx):
+    ''' Displays the feedback list
+    '''
+    try:
+        filter_after = datetime.today() - timedelta(days = 15)
+        feedbacks = session.query(Feedback).filter(Feedback.feedback_date >= filter_after).order_by(Feedback.feedback_date).all()
+        headers = ['Feedback', 'Date', 'Author']
+        rows = [[f.feedback_text, f.feedback_date, f.feedback_author] for f in feedbacks]
+        table = tabulate(rows, headers)
+        await ctx.send('```\n' + table + '```\n')
     except Exception as e:
         await ctx.send('Could not complete your command')
         print(e)
@@ -165,7 +206,6 @@ async def delete(ctx, name:str):
     except Exception as e:
         await ctx.send('Could not complete your command')
         print(e)
-
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -209,7 +249,8 @@ async def list(ctx):
     ''' Displays the list of current events
     '''
     try:
-        events = session.query(Event).order_by(Event.date).all()
+        filter_after = datetime.today() - timedelta(days = 15)
+        events = session.query(Event).filter(Event.date >= filter_after).order_by(Event.date).all()
         headers = ['Name', 'Date', 'Type']
         rows = [[e.name, e.date, e.event_type] for e in events]
         table = tabulate(rows, headers)
@@ -334,6 +375,7 @@ async def killmoon(ctx):
     await ctx.send('```'+ message + '```')
 
 @bot.command()
+@commands.has_any_role('Colonel','Admin Dunkin','Officer','NCO', 'Enlisted', 'Imperial Guard')
 async def kill(ctx, objective:str):
     user = ctx.author
     try:
